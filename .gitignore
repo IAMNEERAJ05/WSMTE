@@ -1,0 +1,10 @@
+data/raw/
+data/processed/*.npy
+data/processed/scaler.pkl
+results/saved_models/
+logs/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+*.h5
+.venv/

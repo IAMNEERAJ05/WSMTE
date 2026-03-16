@@ -1,0 +1,296 @@
+"""
+src/models/wsmte.py
+Full WSMTE model assembly using Keras Functional API.
+
+build_wsmte(config, use_pso=False, ablation_cfg=None)
+  → returns WSMTEModel instance
+
+WSMTEModel subclasses tf.keras.Model with functional inputs/outputs so that:
+  - model.layers exposes LSTM, GRU, TCN layers (required by tests)
+  - model.trainable_variables includes log_sigma1/log_sigma2 for dual-head
+  - Custom train_step / test_step compute the correct loss per head config
+"""
+
+import tensorflow as tf
+import numpy as np
+
+from src.models.encoder import build_lstm_branch, build_gru_branch, build_tcn_branch
+from src.models.heads import build_regression_head, build_classification_head
+from src.models.losses import uncertainty_weighted_loss
+
+
+class WSMTEModel(tf.keras.Model):
+    """
+    WSMTE model with optional uncertainty-weighted MTL loss.
+
+    For dual-head configs (G, H):
+      - log_sigma1, log_sigma2 are trainable tf.Variable parameters
+      - Custom train_step / test_step apply uncertainty weighting
+
+    For single-head configs (A–F):
+      - No sigma variables; custom train_step computes task loss directly
+      - class_weight support: pass sample_weight via model.set_class_weight()
+
+    Initialised via the functional API (inputs= / outputs= kwargs to super()),
+    so model.layers correctly exposes LSTM, GRU, TCN layers.
+    """
+
+    def __init__(self, functional_inputs, functional_outputs, heads, **kwargs):
+        super().__init__(
+            inputs=functional_inputs,
+            outputs=functional_outputs,
+            **kwargs,
+        )
+        self.heads = heads
+        self.has_both = ('classification' in heads and 'regression' in heads)
+        self.has_clf  = 'classification' in heads
+        self.has_reg  = 'regression' in heads
+
+        # Uncertainty parameters (Kendall et al. CVPR 2018) — dual-head only
+        if self.has_both:
+            self.log_sigma1 = tf.Variable(
+                0.0, trainable=True, dtype=tf.float32, name='log_sigma1'
+            )
+            self.log_sigma2 = tf.Variable(
+                0.0, trainable=True, dtype=tf.float32, name='log_sigma2'
+            )
+
+        # Optional per-class sample weights (set via set_class_weight)
+        self._class_weight = None
+
+    # ── Variable tracking (Keras 3 requires explicit override) ────────────────
+
+    @property
+    def trainable_variables(self):
+        """Include log_sigma1/log_sigma2 in trainable_variables for Keras 3."""
+        base = super().trainable_variables
+        if self.has_both:
+            return list(base) + [self.log_sigma1, self.log_sigma2]
+        return base
+
+    # ── Public API ────────────────────────────────────────────────────────────
+
+    def set_class_weight(self, class_weight_dict):
+        """
+        Store class weights for use during training.
+        class_weight_dict: {0: w0, 1: w1} or None
+        """
+        self._class_weight = class_weight_dict
+
+    # ── Loss computation ──────────────────────────────────────────────────────
+
+    def _compute_loss(self, y, preds, training=False):
+        """Compute appropriate loss based on head configuration."""
+        if self.has_both:
+            y_reg  = tf.cast(y[0], tf.float32)
+            y_clf  = tf.cast(y[1], tf.float32)
+            p_reg  = preds[0]
+            p_clf  = preds[1]
+            mse = tf.reduce_mean(tf.square(y_reg - p_reg))
+            bce = tf.reduce_mean(
+                tf.keras.losses.binary_crossentropy(y_clf, p_clf)
+            )
+            return uncertainty_weighted_loss(
+                mse, bce, self.log_sigma1, self.log_sigma2
+            )
+
+        elif self.has_clf:
+            y_clf = tf.cast(y, tf.float32)
+            # Apply sample weights if class_weight is set
+            sample_w = self._get_sample_weights(y_clf)
+            bce_per_sample = tf.keras.losses.binary_crossentropy(y_clf, preds)
+            if sample_w is not None:
+                return tf.reduce_mean(bce_per_sample * sample_w)
+            return tf.reduce_mean(bce_per_sample)
+
+        else:  # regression only
+            y_reg = tf.cast(y, tf.float32)
+            return tf.reduce_mean(tf.square(y_reg - preds))
+
+    def _get_sample_weights(self, y_clf_tensor):
+        """Convert class_weight_dict to per-sample weights tensor."""
+        if self._class_weight is None:
+            return None
+        y_int = tf.cast(tf.round(y_clf_tensor), tf.int32)
+        w0 = float(self._class_weight.get(0, 1.0))
+        w1 = float(self._class_weight.get(1, 1.0))
+        weights = tf.where(tf.equal(y_int, 1), w1, w0)
+        return tf.cast(weights, tf.float32)
+
+    # ── Training / evaluation steps ───────────────────────────────────────────
+
+    def train_step(self, data):
+        x, y = data
+
+        with tf.GradientTape() as tape:
+            preds = self(x, training=True)
+            loss  = self._compute_loss(y, preds, training=True)
+
+        grads = tape.gradient(loss, self.trainable_variables)
+        self.optimizer.apply_gradients(zip(grads, self.trainable_variables))
+
+        return self._collect_metrics(loss, y, preds)
+
+    def test_step(self, data):
+        x, y = data
+        preds = self(x, training=False)
+        loss  = self._compute_loss(y, preds, training=False)
+        return self._collect_metrics(loss, y, preds)
+
+    def _collect_metrics(self, loss, y, preds):
+        results = {'loss': loss}
+
+        # Classification accuracy (always reported when clf head present)
+        if self.has_clf:
+            clf_pred = preds[1] if self.has_both else preds
+            clf_true = tf.cast(y[1] if self.has_both else y, tf.float32)
+            acc = tf.reduce_mean(
+                tf.cast(
+                    tf.equal(tf.cast(clf_pred > 0.5, tf.float32), clf_true),
+                    tf.float32,
+                )
+            )
+            results['binary_accuracy'] = acc
+
+        # Regression MSE (reported separately for dual-head / reg-only)
+        if self.has_reg:
+            reg_pred = preds[0] if self.has_both else preds
+            reg_true = tf.cast(y[0] if self.has_both else y, tf.float32)
+            mse = tf.reduce_mean(tf.square(reg_true - reg_pred))
+            results['mse'] = mse
+
+        return results
+
+    @property
+    def metrics(self):
+        # Reset compiled metric state between epochs
+        return []
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Builder function
+# ─────────────────────────────────────────────────────────────────────────────
+
+def build_wsmte(config, use_pso=False, ablation_cfg=None):
+    """
+    Build and return a WSMTEModel.
+
+    Args:
+        config:      global CONFIG dict
+        use_pso:     if True, returns concat model (Stage 1); PSO merge is
+                     applied externally in pso_weighting.finetune_with_pso_weights()
+        ablation_cfg: one entry from CONFIG['ablation_configs'] (e.g. CONFIG['ablation_configs']['A'])
+                      If None, defaults to full 9-feature dual-head concat model (like Config G).
+
+    Returns:
+        WSMTEModel instance (not yet compiled)
+    """
+    if ablation_cfg is None:
+        ablation_cfg = {
+            'features': config['feature_columns'],   # all 9
+            'heads':    ['classification', 'regression'],
+            'merge':    'concat',
+            'use_pso':  False,
+        }
+
+    n_features = len(ablation_cfg['features'])
+    heads       = ablation_cfg['heads']
+
+    # ── Input ─────────────────────────────────────────────────────────────────
+    inputs = tf.keras.Input(shape=(config['window_size'], n_features), name='input')
+
+    # ── Three parallel encoder branches ───────────────────────────────────────
+    lstm_out = build_lstm_branch(inputs, config)   # [batch, 64]
+    tcn_out  = build_tcn_branch(inputs, config)    # [batch, 64]
+    gru_out  = build_gru_branch(inputs, config)    # [batch, 64]
+
+    # ── Merge ─────────────────────────────────────────────────────────────────
+    # Configs A–G and Stage 1 of H: simple concatenation → [batch, 192]
+    # Config H PSO merge is handled externally by pso_weighting module
+    merged = tf.keras.layers.Concatenate(name='merge')(
+        [lstm_out, tcn_out, gru_out]
+    )  # [batch, 192]
+
+    # ── Shared dense ──────────────────────────────────────────────────────────
+    x = tf.keras.layers.Dense(
+        config['shared_dense_units'],
+        activation=config['shared_dense_activation'],
+        name='shared_dense',
+    )(merged)
+    x = tf.keras.layers.Dropout(
+        config['shared_dense_dropout'], name='shared_dropout'
+    )(x)  # [batch, 64]
+
+    # ── Output heads ──────────────────────────────────────────────────────────
+    outputs = []
+    if 'regression' in heads:
+        outputs.append(build_regression_head(x, config))
+    if 'classification' in heads:
+        outputs.append(build_classification_head(x, config))
+
+    # Single output — unwrap list so model(x) returns tensor not [tensor]
+    if len(outputs) == 1:
+        functional_outputs = outputs[0]
+    else:
+        functional_outputs = outputs
+
+    model = WSMTEModel(
+        functional_inputs=inputs,
+        functional_outputs=functional_outputs,
+        heads=heads,
+        name='wsmte',
+    )
+    return model
+
+
+def build_wsmte_pso(config, pso_weights, ablation_cfg=None):
+    """
+    Build WSMTE model with PSO-weighted branch merge (Config H Stage 3).
+    The shared dense layer now takes [batch, 64] input (weighted sum),
+    NOT [batch, 192] (concatenation).
+
+    pso_weights: array-like [w1, w2, w3] (softmax-normalised, sum=1)
+    """
+    if ablation_cfg is None:
+        ablation_cfg = config['ablation_configs']['H']
+
+    n_features = len(ablation_cfg['features'])
+    heads       = ablation_cfg['heads']
+    w = np.asarray(pso_weights, dtype=np.float32)
+
+    inputs   = tf.keras.Input(shape=(config['window_size'], n_features), name='input')
+    lstm_out = build_lstm_branch(inputs, config)
+    tcn_out  = build_tcn_branch(inputs, config)
+    gru_out  = build_gru_branch(inputs, config)
+
+    # PSO-weighted sum → [batch, 64]
+    merged = (
+        w[0] * lstm_out
+        + w[1] * tcn_out
+        + w[2] * gru_out
+    )
+
+    x = tf.keras.layers.Dense(
+        config['shared_dense_units'],
+        activation=config['shared_dense_activation'],
+        name='shared_dense',
+    )(merged)
+    x = tf.keras.layers.Dropout(
+        config['shared_dense_dropout'], name='shared_dropout'
+    )(x)
+
+    outputs = []
+    if 'regression' in heads:
+        outputs.append(build_regression_head(x, config))
+    if 'classification' in heads:
+        outputs.append(build_classification_head(x, config))
+
+    functional_outputs = outputs[0] if len(outputs) == 1 else outputs
+
+    model = WSMTEModel(
+        functional_inputs=inputs,
+        functional_outputs=functional_outputs,
+        heads=heads,
+        name='wsmte_pso',
+    )
+    return model
