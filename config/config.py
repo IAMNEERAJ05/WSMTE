@@ -23,8 +23,8 @@ CONFIG = {
     # ─────────────────────────────────────────────
     'ticker':              '^NSEI',
     'start_date':          '2020-01-01',
-    'end_date':            '2024-05-31',
-    'gap_start':           '2021-04-16',  # day after Kaggle1 last entry
+    'end_date':            '2024-04-23',
+    'gap_start':           '2021-04-16',  # day after Kaggle1 last entry (Apr 15, 2021)
     'gap_end':             '2021-12-31',
 
     # ─────────────────────────────────────────────
@@ -35,11 +35,11 @@ CONFIG = {
     'kotekar_text_col':       'articleBody',
     'kotekar_headline_col':   'headline',
 
-    # Kaggle Dataset 1 (Jan 2020 – Apr 2021)
+    # Kaggle Dataset 1 (Jan 2017 – Apr 15, 2021; filtered from Jan 2020)
     'kaggle1_date_col':       'Date',
     'kaggle1_text_col':       'Title',
 
-    # Kaggle Dataset 2 (Jan 2022 – May 2024)
+    # Kaggle Dataset 2 (Jan 2022 – Dec 2024; filtered to Apr 2024)
     'kaggle2_date_col':       'Date',
     'kaggle2_text_col':       'Headline',
 

@@ -19,7 +19,7 @@ NOTE: NO pre-computed polarity or subjectivity
       Must run mDeBERTa on articleBody (truncated to 512 tokens)
 ```
 
-### Kaggle Dataset 1 (Jan 2017 – Apr 2021, market-level)
+### Kaggle Dataset 1 (Jan 2017 – Apr 15, 2021, market-level)
 ```
 Columns: Date, Title, URL, sentiment, confidence
 Source:  Economic Times (economictimes.indiatimes.com)
@@ -68,7 +68,7 @@ Step 17: Check class imbalance
 import yfinance as yf
 import pandas as pd
 
-nifty = yf.download('^NSEI', start='2020-01-01', end='2024-05-31')
+nifty = yf.download('^NSEI', start='2020-01-01', end='2024-04-23')
 nifty = nifty[['Open', 'High', 'Low', 'Close', 'Volume']]
 nifty.index = pd.to_datetime(nifty.index)
 nifty = nifty.sort_index()
@@ -86,7 +86,7 @@ kotekar = pd.read_csv('data/raw/kotekar_news.csv')
 kotekar['date'] = pd.to_datetime(kotekar['datePublished']).dt.date
 kotekar = kotekar[
     (kotekar['date'] >= pd.to_datetime('2020-01-01').date()) &
-    (kotekar['date'] <= pd.to_datetime('2024-05-31').date())
+    (kotekar['date'] <= pd.to_datetime('2024-04-23').date())
 ]
 print(f"Kotekar shape: {kotekar.shape}")
 
@@ -95,7 +95,7 @@ kaggle1 = pd.read_csv('data/raw/kaggle_news_1.csv')
 kaggle1['date'] = pd.to_datetime(kaggle1['Date']).dt.date
 kaggle1 = kaggle1[
     (kaggle1['date'] >= pd.to_datetime('2020-01-01').date()) &
-    (kaggle1['date'] <= pd.to_datetime('2021-04-30').date())
+    (kaggle1['date'] <= pd.to_datetime('2021-04-15').date())
 ]
 print(f"Kaggle1 shape: {kaggle1.shape}")
 
@@ -104,7 +104,7 @@ kaggle2 = pd.read_csv('data/raw/kaggle_news_2.csv')
 kaggle2['date'] = pd.to_datetime(kaggle2['Date']).dt.date
 kaggle2 = kaggle2[
     (kaggle2['date'] >= pd.to_datetime('2022-01-01').date()) &
-    (kaggle2['date'] <= pd.to_datetime('2024-05-31').date())
+    (kaggle2['date'] <= pd.to_datetime('2024-04-23').date())
 ]
 print(f"Kaggle2 shape: {kaggle2.shape}")
 ```
@@ -273,7 +273,7 @@ company_daily = kotekar.groupby('date').agg(
 print(f"Company daily: {company_daily.shape}")
 
 # Market-level: combine Kaggle 1 + 2, no date overlap
-# Kaggle1 covers up to Apr 2021, Kaggle2 from Jan 2022
+# Kaggle1 covers up to Apr 15, 2021, Kaggle2 from Jan 2022
 # Gap May–Dec 2021 handled in Step 8
 market_combined = pd.concat([
     kaggle1[['date', 'polarity_market']],

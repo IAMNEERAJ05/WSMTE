@@ -70,7 +70,7 @@ kotekar = pd.read_csv('/kaggle/input/wsmte-raw/kotekar_news.csv')
 kotekar['date'] = pd.to_datetime(kotekar['datePublished']).dt.date
 kotekar = kotekar[
     (kotekar['date'] >= pd.to_datetime('2020-01-01').date()) &
-    (kotekar['date'] <= pd.to_datetime('2024-05-31').date())
+    (kotekar['date'] <= pd.to_datetime('2024-04-23').date())
 ]
 
 print(f"Kotekar shape: {kotekar.shape}")
@@ -108,7 +108,7 @@ kaggle1 = pd.read_csv('/kaggle/input/wsmte-raw/kaggle_news_1.csv')
 kaggle1['date'] = pd.to_datetime(kaggle1['Date']).dt.date
 kaggle1 = kaggle1[
     (kaggle1['date'] >= pd.to_datetime('2020-01-01').date()) &
-    (kaggle1['date'] <= pd.to_datetime('2021-04-30').date())
+    (kaggle1['date'] <= pd.to_datetime('2021-04-15').date())
 ]
 
 print(f"Kaggle1 shape: {kaggle1.shape}")
@@ -127,7 +127,7 @@ kaggle2 = pd.read_csv('/kaggle/input/wsmte-raw/kaggle_news_2.csv')
 kaggle2['date'] = pd.to_datetime(kaggle2['Date']).dt.date
 kaggle2 = kaggle2[
     (kaggle2['date'] >= pd.to_datetime('2022-01-01').date()) &
-    (kaggle2['date'] <= pd.to_datetime('2024-05-31').date())
+    (kaggle2['date'] <= pd.to_datetime('2024-04-23').date())
 ]
 
 print(f"Kaggle2 shape: {kaggle2.shape}")

@@ -20,7 +20,7 @@ If something seems improvable, note it as a comment but implement as specified.
 ### Price Data
 - Source: Yahoo Finance, ticker ^NSEI
 - Columns: Open, High, Low, Close, Volume
-- Range: Jan 2020 – May 2024
+- Range: Jan 2020 – Apr 2024
 
 ### Company-Level Sentiment — Kotekar GitHub Dataset
 - Columns available: datePublished, company, symbol, headline,
@@ -36,12 +36,12 @@ If something seems improvable, note it as a comment but implement as specified.
 - Missing trading days: polarity = 0, subjectivity = 0.5
 
 ### Market-Level Sentiment
-- Kaggle Dataset 1: Jan 2020 – Apr 2021
+- Kaggle Dataset 1: Jan 2020 – Apr 15, 2021
   Columns: Date, Title, URL, sentiment, confidence
   Text column to use: Title
   NOTE: existing sentiment/confidence ignored — rerun FinBERT for consistency
 - Gap period May 2021 – Dec 2021: polarity_market = 0 (neutral fill)
-- Kaggle Dataset 2: Jan 2022 – May 2024
+- Kaggle Dataset 2: Jan 2022 – Apr 2024
   Columns: Archive, Date, Headline, Headline link
   Text column to use: Headline
 - FinBERT model: ProsusAI/finbert (same as company-level)
