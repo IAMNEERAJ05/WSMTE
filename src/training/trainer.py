@@ -141,8 +141,10 @@ def train_multi_run(ablation_cfg, config_name, data, config, n_runs=None,
 
         # Append row to CSV immediately (in case session dies)
         _append_to_csv(row, results_path, config)
-        print(f"  accuracy={row.get('accuracy', 'N/A'):.4f}  "
-              f"auc={row.get('auc', 'N/A'):.4f}")
+        acc = row.get('accuracy')
+        auc = row.get('auc')
+        print(f"  accuracy={acc:.4f}  auc={auc:.4f}" if acc is not None
+              else f"  rmse={row.get('rmse', 'N/A'):.6f}  mae={row.get('mae', 'N/A'):.6f}")
 
     return pd.DataFrame(all_rows)
 
