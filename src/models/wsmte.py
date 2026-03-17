@@ -19,7 +19,6 @@ from src.models.heads import build_regression_head, build_classification_head
 from src.models.losses import uncertainty_weighted_loss
 
 
-@tf.keras.saving.register_keras_serializable()
 class WSMTEModel(tf.keras.Model):
     """
     WSMTE model with optional uncertainty-weighted MTL loss.
