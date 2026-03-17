@@ -62,7 +62,6 @@ def build_tcn_branch(inputs, config):
         use_skip_connections=config['tcn_use_skip_connections'],
         use_batch_norm=config['tcn_use_batch_norm'],
         use_layer_norm=config['tcn_use_layer_norm'],
-        use_weight_norm=config['tcn_use_weight_norm'],
         return_sequences=False,
         name='tcn_branch',
     )(inputs)
