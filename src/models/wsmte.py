@@ -265,12 +265,11 @@ def build_wsmte_pso(config, pso_weights, ablation_cfg=None):
     tcn_out  = build_tcn_branch(inputs, config)
     gru_out  = build_gru_branch(inputs, config)
 
-    # PSO-weighted sum → [batch, 64]
-    merged = (
-        float(w[0]) * lstm_out
-        + float(w[1]) * tcn_out
-        + float(w[2]) * gru_out
-    )
+    # PSO-weighted sum → [batch, 64]  (use Lambda layers — direct float*KerasTensor unsupported)
+    lstm_scaled = tf.keras.layers.Lambda(lambda x: x * float(w[0]), name='lstm_scale')(lstm_out)
+    tcn_scaled  = tf.keras.layers.Lambda(lambda x: x * float(w[1]), name='tcn_scale')(tcn_out)
+    gru_scaled  = tf.keras.layers.Lambda(lambda x: x * float(w[2]), name='gru_scale')(gru_out)
+    merged = tf.keras.layers.Add(name='pso_merge')([lstm_scaled, tcn_scaled, gru_scaled])
 
     x = tf.keras.layers.Dense(
         config['shared_dense_units'],
