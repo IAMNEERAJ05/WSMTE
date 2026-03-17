@@ -267,9 +267,9 @@ def build_wsmte_pso(config, pso_weights, ablation_cfg=None):
 
     # PSO-weighted sum → [batch, 64]
     merged = (
-        w[0] * lstm_out
-        + w[1] * tcn_out
-        + w[2] * gru_out
+        float(w[0]) * lstm_out
+        + float(w[1]) * tcn_out
+        + float(w[2]) * gru_out
     )
 
     x = tf.keras.layers.Dense(
