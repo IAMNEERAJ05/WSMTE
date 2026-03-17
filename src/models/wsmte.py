@@ -262,10 +262,13 @@ def build_wsmte_pso(config, pso_weights, ablation_cfg=None):
 
     inputs   = tf.keras.Input(shape=(config['window_size'], n_features), name='input')
     lstm_out = build_lstm_branch(inputs, config)
-    tcn_out  = build_tcn_branch(inputs, config)
+    # keras-tcn's return_sequences=False uses an internal Lambda slicer, producing a
+    # non-standard KerasTensor that breaks arithmetic ops. Wrap through Activation('linear')
+    # (identity) to create a clean KerasTensor before scaling.
+    tcn_out  = tf.keras.layers.Activation('linear', name='tcn_norm')(build_tcn_branch(inputs, config))
     gru_out  = build_gru_branch(inputs, config)
 
-    # PSO-weighted sum → [batch, 64]  (Rescaling is a proper Keras layer, avoids KerasTensor arithmetic issues)
+    # PSO-weighted sum → [batch, 64]
     lstm_scaled = tf.keras.layers.Rescaling(scale=float(w[0]), offset=0., name='lstm_scale')(lstm_out)
     tcn_scaled  = tf.keras.layers.Rescaling(scale=float(w[1]), offset=0., name='tcn_scale')(tcn_out)
     gru_scaled  = tf.keras.layers.Rescaling(scale=float(w[2]), offset=0., name='gru_scale')(gru_out)
