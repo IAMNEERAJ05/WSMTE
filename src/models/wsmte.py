@@ -82,10 +82,10 @@ class WSMTEModel(tf.keras.Model):
     def _compute_loss(self, y, preds, training=False):
         """Compute appropriate loss based on head configuration."""
         if self.has_both:
-            y_reg  = tf.cast(y[0], tf.float32)
-            y_clf  = tf.cast(y[1], tf.float32)
-            p_reg  = preds[0]
-            p_clf  = preds[1]
+            y_reg  = tf.reshape(tf.cast(y[0], tf.float32), [-1])
+            y_clf  = tf.reshape(tf.cast(y[1], tf.float32), [-1])
+            p_reg  = tf.reshape(preds[0], [-1])
+            p_clf  = tf.reshape(preds[1], [-1])
             mse = tf.reduce_mean(tf.square(y_reg - p_reg))
             bce = tf.reduce_mean(
                 tf.keras.losses.binary_crossentropy(y_clf, p_clf)
@@ -95,17 +95,19 @@ class WSMTEModel(tf.keras.Model):
             )
 
         elif self.has_clf:
-            y_clf = tf.cast(y, tf.float32)
+            y_clf = tf.reshape(tf.cast(y, tf.float32), [-1])
+            p_clf = tf.reshape(preds, [-1])
             # Apply sample weights if class_weight is set
             sample_w = self._get_sample_weights(y_clf)
-            bce_per_sample = tf.keras.losses.binary_crossentropy(y_clf, preds)
+            bce_per_sample = tf.keras.losses.binary_crossentropy(y_clf, p_clf)
             if sample_w is not None:
                 return tf.reduce_mean(bce_per_sample * sample_w)
             return tf.reduce_mean(bce_per_sample)
 
         else:  # regression only
-            y_reg = tf.cast(y, tf.float32)
-            return tf.reduce_mean(tf.square(y_reg - preds))
+            y_reg = tf.reshape(tf.cast(y, tf.float32), [-1])
+            p_reg = tf.reshape(preds, [-1])
+            return tf.reduce_mean(tf.square(y_reg - p_reg))
 
     def _get_sample_weights(self, y_clf_tensor):
         """Convert class_weight_dict to per-sample weights tensor."""
@@ -142,8 +144,8 @@ class WSMTEModel(tf.keras.Model):
 
         # Classification accuracy (always reported when clf head present)
         if self.has_clf:
-            clf_pred = preds[1] if self.has_both else preds
-            clf_true = tf.cast(y[1] if self.has_both else y, tf.float32)
+            clf_pred = tf.reshape(preds[1] if self.has_both else preds, [-1])
+            clf_true = tf.reshape(tf.cast(y[1] if self.has_both else y, tf.float32), [-1])
             acc = tf.reduce_mean(
                 tf.cast(
                     tf.equal(tf.cast(clf_pred > 0.5, tf.float32), clf_true),
@@ -154,8 +156,8 @@ class WSMTEModel(tf.keras.Model):
 
         # Regression MSE (reported separately for dual-head / reg-only)
         if self.has_reg:
-            reg_pred = preds[0] if self.has_both else preds
-            reg_true = tf.cast(y[0] if self.has_both else y, tf.float32)
+            reg_pred = tf.reshape(preds[0] if self.has_both else preds, [-1])
+            reg_true = tf.reshape(tf.cast(y[0] if self.has_both else y, tf.float32), [-1])
             mse = tf.reduce_mean(tf.square(reg_true - reg_pred))
             results['mse'] = mse
 
