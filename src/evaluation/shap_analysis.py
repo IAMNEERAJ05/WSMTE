@@ -10,31 +10,31 @@ import matplotlib.pyplot as plt
 import shap
 
 
-def run_shap_analysis(model, X_test, feature_names, save_path=None,
-                      background_size=100, max_display=9):
+def run_shap_analysis(model, X_test, feature_names, X_train=None,
+                      save_path=None, background_size=100, max_display=9):
     """
     Compute SHAP values for the classification head using GradientExplainer,
     generate a summary plot, and optionally save it.
 
     The explainer uses the shared encoder + classification path.
-    A background dataset (random sample of training data) is used as the
+    A background dataset (random sample of X_train) is used as the
     reference distribution.
 
     Args:
         model:           compiled WSMTEModel (dual-head or clf-only)
         X_test:          np.ndarray [n_test, window_size, n_features]
         feature_names:   list of strings, length n_features
-                         (e.g. CONFIG['feature_columns'])
+                         (must be CONFIG['feature_columns'] — all 9 features)
+        X_train:         np.ndarray [n_train, window_size, n_features]
+                         used as background for GradientExplainer (recommended)
+                         falls back to X_test if not provided
         save_path:       optional path to save the PNG figure
-                         (e.g. 'results/figures/shap_summary.png')
         background_size: int — number of background samples for GradientExplainer
         max_display:     int — max features to show in summary plot
 
     Returns:
         shap_values: np.ndarray — raw SHAP values from explainer
     """
-    # Build a sub-model that outputs only the classification logit
-    # (GradientExplainer requires a single output)
     import tensorflow as tf
 
     clf_output = None
@@ -49,11 +49,12 @@ def run_shap_analysis(model, X_test, feature_names, save_path=None,
 
     clf_model = tf.keras.Model(inputs=model.input, outputs=clf_output)
 
-    # Background dataset — small random subset of X_test
+    # Background dataset — random sample from X_train (not X_test)
+    bg_pool = X_train if X_train is not None else X_test
     np.random.seed(42)
-    idx = np.random.choice(len(X_test), size=min(background_size, len(X_test)),
+    idx = np.random.choice(len(bg_pool), size=min(background_size, len(bg_pool)),
                            replace=False)
-    background = X_test[idx]
+    background = bg_pool[idx]
 
     print("Running SHAP GradientExplainer...")
     explainer   = shap.GradientExplainer(clf_model, background)
