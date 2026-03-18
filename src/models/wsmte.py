@@ -19,7 +19,9 @@ from src.models.heads import build_regression_head, build_classification_head
 from src.models.losses import uncertainty_weighted_loss
 
 
+@tf.keras.utils.register_keras_serializable(package='src.models.wsmte')
 class WSMTEModel(tf.keras.Model):
+
     """
     WSMTE model with optional uncertainty-weighted MTL loss.
 
@@ -167,6 +169,24 @@ class WSMTEModel(tf.keras.Model):
     def metrics(self):
         # Reset compiled metric state between epochs
         return []
+
+    def get_config(self):
+        config = super().get_config()
+        config['heads'] = list(self.heads)
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        heads = config.pop('heads', ['classification', 'regression'])
+        # Reconstruct the functional graph as a plain Model, then re-wrap
+        inner = tf.keras.Model.from_config(config)
+        outputs = inner.outputs[0] if len(inner.outputs) == 1 else inner.outputs
+        return cls(
+            functional_inputs=inner.input,
+            functional_outputs=outputs,
+            heads=heads,
+            name=inner.name,
+        )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
