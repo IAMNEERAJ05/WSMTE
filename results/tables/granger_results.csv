@@ -1,0 +1,11 @@
+source,lag,ssr_ftest_pvalue,lrtest_pvalue,params_ftest_pvalue,significant
+polarity_company,1,0.362043,0.361257,0.362043,False
+polarity_company,2,0.653295,0.65199,0.653295,False
+polarity_company,3,0.757282,0.755545,0.757282,False
+polarity_company,4,0.856409,0.854692,0.856409,False
+polarity_company,5,0.883952,0.881949,0.883952,False
+polarity_market,1,0.26131,0.260529,0.26131,False
+polarity_market,2,0.486723,0.48508,0.486723,False
+polarity_market,3,0.296112,0.293391,0.296112,False
+polarity_market,4,0.421283,0.417215,0.421283,False
+polarity_market,5,0.459864,0.454436,0.459864,False

@@ -1,0 +1,11 @@
+{
+  "test": "Wilcoxon signed-rank",
+  "config_a": "B",
+  "config_b": "H",
+  "n_pairs": 10,
+  "mean_B": 0.5737,
+  "mean_H": 0.5541,
+  "W_statistic": 14.5,
+  "p_value": 0.205078,
+  "significant_at_0_05": false
+}
