@@ -97,11 +97,11 @@ def test_wavelet_reduces_noise():
     assert np.std(denoised) < np.std(original)
 ```
 
-### Test 4 — Feature vector has exactly 9 columns
+### Test 4 — Feature vector has exactly 10 columns
 ```python
 def test_feature_vector_shape():
     df = pd.read_csv('data/processed/final_dataset.csv')
-    assert len(FEATURE_COLUMNS) == 9
+    assert len(FEATURE_COLUMNS) == 10
     assert all(col in df.columns for col in FEATURE_COLUMNS)
 ```
 
@@ -110,16 +110,17 @@ def test_feature_vector_shape():
 def test_feature_column_order():
     expected = ['Close_d', 'Volume_d', 'RSI_d', 'MACD_d',
                 'BB_width_d', 'ROC_d',
-                'polarity_company', 'polarity_market', 'subjectivity']
+                'polarity_company', 'polarity_company_max',
+                'polarity_market', 'subjectivity']
     assert FEATURE_COLUMNS == expected
 ```
 
 ### Test 6 — Sliding window shape
 ```python
 def test_window_shape():
-    """Each window must be [5, 9]."""
-    assert X_train.shape[1] == 5   # timesteps
-    assert X_train.shape[2] == 9   # features
+    """Each window must be [5, 10]."""
+    assert X_train.shape[1] == 5    # timesteps
+    assert X_train.shape[2] == 10   # features
 ```
 
 ### Test 7 — Technical indicators computed on denoised not raw

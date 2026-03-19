@@ -49,19 +49,22 @@ def merge_sources(price_df, kotekar_sent, market_combined, config):
     Aggregate sentiment to daily level and left-join onto trading dates.
 
     Steps:
-      1. Daily mean polarity_company + subjectivity from kotekar_sent
+      1. Daily mean polarity_company + polarity_company_max + subjectivity from kotekar_sent
       2. Daily mean polarity_market from market_combined
       3. Left join both onto price_df (trading days are the anchor)
       4. Fill missing values:
-           polarity_market  → 0.0  (covers gap May–Dec 2021 + any other missing)
-           polarity_company → 0.0
-           subjectivity     → 0.5
+           polarity_market      → 0.0  (covers gap May–Dec 2021 + any other missing)
+           polarity_company     → 0.0
+           polarity_company_max → 0.0
+           subjectivity         → 0.5
 
     Returns merged DataFrame with all columns intact.
     """
-    # Aggregate company sentiment
+    # Aggregate company sentiment — mean, max-absolute (signed), and mean subjectivity
     company_daily = kotekar_sent.groupby('date').agg(
         polarity_company=('polarity_company', 'mean'),
+        polarity_company_max=('polarity_company',
+                              lambda x: x.loc[x.abs().idxmax()]),
         subjectivity=('subjectivity', 'mean')
     ).reset_index()
 
@@ -73,9 +76,10 @@ def merge_sources(price_df, kotekar_sent, market_combined, config):
     df = price_df.merge(company_daily, on='date', how='left')
     df = df.merge(market_daily, on='date', how='left')
 
-    df['polarity_market']  = df['polarity_market'].fillna(config['missing_polarity'])
-    df['polarity_company'] = df['polarity_company'].fillna(config['missing_polarity'])
-    df['subjectivity']     = df['subjectivity'].fillna(config['missing_subjectivity'])
+    df['polarity_market']      = df['polarity_market'].fillna(config['missing_polarity'])
+    df['polarity_company']     = df['polarity_company'].fillna(config['missing_polarity'])
+    df['polarity_company_max'] = df['polarity_company_max'].fillna(config['missing_polarity'])
+    df['subjectivity']         = df['subjectivity'].fillna(config['missing_subjectivity'])
 
     df = df.sort_values('date').reset_index(drop=True)
     return df

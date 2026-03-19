@@ -8,16 +8,19 @@ import pandas as pd
 
 def aggregate_company_daily(kotekar_sent):
     """
-    Aggregate Kotekar per-article sentiment to per-trading-day means.
+    Aggregate Kotekar per-article sentiment to per-trading-day values.
 
     Args:
         kotekar_sent: DataFrame with columns [date, polarity_company, subjectivity]
 
     Returns:
-        DataFrame with columns [date, polarity_company, subjectivity]
+        DataFrame with columns [date, polarity_company, polarity_company_max, subjectivity]
+        polarity_company_max: signed polarity of the article with highest absolute polarity
     """
     daily = kotekar_sent.groupby('date').agg(
         polarity_company=('polarity_company', 'mean'),
+        polarity_company_max=('polarity_company',
+                              lambda x: x.loc[x.abs().idxmax()]),
         subjectivity=('subjectivity', 'mean'),
     ).reset_index()
     return daily

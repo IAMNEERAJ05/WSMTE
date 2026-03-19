@@ -265,11 +265,14 @@ print(f"Saved kaggle2_polarity.csv. Shape: {kaggle2.shape}")
 ## Step 7 — Aggregate All Sentiment to Daily Level
 
 ```python
-# Company-level: mean per trading day
+# Company-level: mean and max-absolute (signed) per trading day
 company_daily = kotekar.groupby('date').agg(
     polarity_company=('polarity_company', 'mean'),
+    polarity_company_max=('polarity_company',
+                          lambda x: x.loc[x.abs().idxmax()]),
     subjectivity=('subjectivity', 'mean')
 ).reset_index()
+# polarity_company_max: signed polarity of the article with highest absolute polarity
 print(f"Company daily: {company_daily.shape}")
 
 # Market-level: combine Kaggle 1 + 2, no date overlap
@@ -301,9 +304,10 @@ df = price_df.merge(company_daily, on='date', how='left')
 df = df.merge(market_daily, on='date', how='left')
 
 # Fill gap period + any other missing
-df['polarity_market'] = df['polarity_market'].fillna(0.0)
-df['polarity_company'] = df['polarity_company'].fillna(0.0)
-df['subjectivity'] = df['subjectivity'].fillna(0.5)
+df['polarity_market']      = df['polarity_market'].fillna(0.0)
+df['polarity_company']     = df['polarity_company'].fillna(0.0)
+df['polarity_company_max'] = df['polarity_company_max'].fillna(0.0)
+df['subjectivity']         = df['subjectivity'].fillna(0.5)
 
 df = df.sort_values('date').reset_index(drop=True)
 print(f"Merged shape: {df.shape}")
@@ -372,7 +376,7 @@ df['ROC_d'] = df['Close_d'].pct_change(periods=5) * 100
 FEATURE_COLUMNS = [
     'Close_d', 'Volume_d', 'RSI_d', 'MACD_d',
     'BB_width_d', 'ROC_d',
-    'polarity_company', 'polarity_market', 'subjectivity'
+    'polarity_company', 'polarity_company_max', 'polarity_market', 'subjectivity'
 ]
 
 # Drop warmup rows (26 days for MACD)
@@ -496,9 +500,9 @@ with open('data/processed/class_weights.json', 'w') as f:
 ## Final Expected Shapes
 
 ```
-X_train:      (~730, 5, 9)   float32
-X_val:        (~155, 5, 9)   float32
-X_test:       (~155, 5, 9)   float32
+X_train:      (~730, 5, 10)   float32
+X_val:        (~155, 5, 10)   float32
+X_test:       (~155, 5, 10)   float32
 y_clf_*:      (~n,)          int32    {0, 1}
 y_reg_*:      (~n,)          float32
 ```

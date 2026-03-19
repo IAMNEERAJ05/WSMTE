@@ -1,23 +1,23 @@
 # WSMTE — Architecture Specification
 
 ## Input
-- Shape: [batch_size, 5, 9]
+- Shape: [batch_size, 5, 10]
 - 5 = timesteps (5-day sliding window)
-- 9 = features [Close_d, Volume_d, RSI_d, MACD_d, BB_width_d, ROC_d,
-                 Polarity_company, Polarity_market, Subjectivity]
+- 10 = features [Close_d, Volume_d, RSI_d, MACD_d, BB_width_d, ROC_d,
+                  Polarity_company, Polarity_company_max, Polarity_market, Subjectivity]
 
 ---
 
 ## Full Architecture Diagram
 
 ```
-Input [batch, 5, 9]
+Input [batch, 5, 10]
       │
       ├─────────────────────────────────────────────────────┐
       │                         │                           │
       ▼                         ▼                           ▼
 LSTM Branch               TCN Branch                  GRU Branch
-units=64                  filters=64                  units=64
+units=32                  filters=32                  units=32
 activation=tanh           kernel_size=2               activation=tanh
 recurrent_act=sigmoid     dilations=[1,2,4]           recurrent_act=sigmoid
 dropout=0.2               padding=causal              dropout=0.2
@@ -26,18 +26,18 @@ return_sequences=False    dropout=0.2                 return_sequences=False
                           skip_connections=True
                           batch_norm=False
                           layer_norm=False
-                          weight_norm=False
+                          weight_norm=True
       │                         │                           │
-      ▼ [batch, 64]             ▼ [batch, 64]              ▼ [batch, 64]
+      ▼ [batch, 32]             ▼ [batch, 32]              ▼ [batch, 32]
       │                         │                           │
       └─────────── MERGE ───────────────────────────────────┘
                      │
-          Config A-G: Concatenate → [batch, 192]
-          Config H:   PSO weighted sum → [batch, 64]
+          Config A-E: Concatenate → [batch, 96]
+          Config F:   PSO weighted sum → [batch, 32]
                       w1×LSTM + w2×TCN + w3×GRU (w1+w2+w3=1)
                      │
                      ▼
-              Dense(64, relu)
+              Dense(32, relu)
               Dropout(0.2)
                      │ [batch, 64]
                      │
@@ -58,17 +58,13 @@ return_sequences=False    dropout=0.2                 return_sequences=False
 ## Combined Loss Function
 
 ```
-L_total = (1 / 2σ₁²) × MSE + (1 / 2σ₂²) × BCE + log(σ₁) + log(σ₂)
+L_total = 0.3 × MSE + 0.7 × BCE
 
 Where:
-  σ₁ = trainable noise parameter for regression task
-  σ₂ = trainable noise parameter for classification task
-  Both initialized to 1.0, learned during training
-  Implementation: tf.Variable, trainable=True
+  MSE = mean squared error (regression head)
+  BCE = binary cross-entropy (classification head)
+  Weights are fixed — no trainable noise parameters
 ```
-
-Reference: Kendall et al., "Multi-Task Learning Using Uncertainty to Weigh
-Losses for Scene Geometry and Semantics", CVPR 2018.
 
 ---
 
@@ -87,24 +83,22 @@ Receptive field = 8 > 5 ✓ (full coverage with margin)
 
 ---
 
-## Ablation Study — 8 Configs
+## Ablation Study — 6 Configs
 
-| Config | Features Used | Merge | Heads | Runs | Tests |
-|--------|--------------|-------|-------|------|-------|
-| A | Close_d, Volume_d, RSI_d, MACD_d, BB_width_d, ROC_d | concat | classification | 10 | Technicals-only floor baseline |
-| B | A + polarity_company + subjectivity | concat | classification | 10 | Company sentiment contribution |
-| C | All 9 features | concat | classification | 10 | Novelty 2 — market sentiment |
-| D | All 9 features | concat | classification | 10 | Full features single-task confirmed |
-| E | All 9 features | concat | classification only | 10 | Novelty 4 (no regression) |
-| F | All 9 features | concat | regression only | 10 | Novelty 4 (no classification) |
-| G | All 9 features | concat | both heads | 10 | Full WSMTE without PSO |
-| H | All 9 features | PSO weighted | both heads | 30 | FINAL proposed model |
+| Config | Features Used | Merge | Heads | Runs | Purpose |
+|--------|--------------|-------|-------|------|---------|
+| A | Close_d, High_d, Low_d, Open_d, Volume_d | concat | classification | 30 | Denoised OHLCV price-only floor |
+| B | Close_d, High_d, Low_d, Open_d, Volume_d + all sentiment | concat | classification | 30 | OHLCV + sentiment, no technicals |
+| C | Close_d, Volume_d, RSI_d, MACD_d, BB_width_d, ROC_d | concat | classification | 30 | Technical indicators only |
+| D | All 9 features | concat | classification | 30 | Full features, single-task |
+| E | All 9 features | concat | both heads | 30 | Full WSMTE without PSO |
+| F | All 9 features | PSO weighted | both heads | 30 | FINAL proposed model |
 
-Config H = your final proposed model. Compare against Kotekar 0.5853.
+Config F = your final proposed model. Compare against Kotekar 0.5853.
 
 ---
 
-## PSO Two-Stage Process (Config H only)
+## PSO Two-Stage Process (Config F only)
 
 ### Stage 1 — Initial Training
 ```
@@ -144,18 +138,17 @@ Evaluate on test set
 ## Model Parameter Count (approximate)
 
 ```
-LSTM branch:      ~33,000 parameters
-GRU branch:       ~25,000 parameters
-TCN branch:       ~25,000 parameters
-Shared Dense(64): ~12,500 parameters
-Reg head:         ~1,100 parameters
-Class head:       ~1,100 parameters
-σ₁, σ₂:          2 parameters
+LSTM branch:      ~8,500 parameters
+GRU branch:       ~6,500 parameters
+TCN branch:       ~6,500 parameters
+Shared Dense(32): ~3,100 parameters
+Reg head:         ~530 parameters
+Class head:       ~530 parameters
 ─────────────────────────────────────
-Total:            ~97,800 parameters
+Total:            ~25,700 parameters
 ```
 
-Small enough to train comfortably on 1090 samples without overfitting
+Small enough to train comfortably on ~1090 samples without overfitting
 given dropout=0.2 and early stopping.
 
 ---
@@ -163,14 +156,14 @@ given dropout=0.2 and early stopping.
 ## Output Shapes at Each Stage
 
 ```
-Input:              [batch, 5, 9]
-After LSTM:         [batch, 64]
-After GRU:          [batch, 64]
-After TCN:          [batch, 64]
-After concat (A-G): [batch, 192]
-After PSO (H):      [batch, 64]
-After Dense(64):    [batch, 64]
-After Dropout:      [batch, 64]
+Input:              [batch, 5, 10]
+After LSTM:         [batch, 32]
+After GRU:          [batch, 32]
+After TCN:          [batch, 32]
+After concat (A-E): [batch, 96]
+After PSO (F):      [batch, 32]
+After Dense(32):    [batch, 32]
+After Dropout:      [batch, 32]
 Regression output:  [batch, 1]
 Classification out: [batch, 1]
 ```
@@ -203,14 +196,12 @@ Classification output:    sigmoid
 
 3. For parallel branches, use Keras functional API not Sequential
 
-4. σ₁ and σ₂ implementation:
-   log_sigma1 = tf.Variable(0.0, trainable=True, name='log_sigma1')
-   log_sigma2 = tf.Variable(0.0, trainable=True, name='log_sigma2')
-   loss = (tf.exp(-log_sigma1)*mse + log_sigma1 +
-           tf.exp(-log_sigma2)*bce + log_sigma2)
+4. Fixed-weight MTL loss:
+   loss = 0.3 * mse + 0.7 * bce
+   No trainable σ parameters.
 
-5. For Config A-G concatenation:
+5. For Config A-E concatenation:
    merged = tf.keras.layers.Concatenate()([lstm_out, tcn_out, gru_out])
 
-6. For Config H PSO merge (after PSO finds weights):
+6. For Config F PSO merge (after PSO finds weights):
    merged = w1*lstm_out + w2*tcn_out + w3*gru_out

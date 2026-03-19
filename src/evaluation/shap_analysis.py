@@ -24,7 +24,7 @@ def run_shap_analysis(model, X_test, feature_names, X_train=None,
         model:           compiled WSMTEModel (dual-head or clf-only)
         X_test:          np.ndarray [n_test, window_size, n_features]
         feature_names:   list of strings, length n_features
-                         (must be CONFIG['feature_columns'] — all 9 features)
+                         (must be CONFIG['feature_columns'] — all 10 features)
         X_train:         np.ndarray [n_train, window_size, n_features]
                          used as background for GradientExplainer (recommended)
                          falls back to X_test if not provided
@@ -60,19 +60,22 @@ def run_shap_analysis(model, X_test, feature_names, X_train=None,
     explainer   = shap.GradientExplainer(clf_model, background)
     shap_values = explainer.shap_values(X_test)
 
-    # shap_values shape: [n_test, window_size, n_features]
-    # Average over the window dimension for a per-feature importance plot
+    # shap_values shape: [n_test, window_size, n_features] or [n_test, window_size, n_features, 1]
+    # GradientExplainer adds a trailing output dimension for scalar outputs — squeeze it.
     if isinstance(shap_values, list):
-        sv = shap_values[0]   # single output
+        sv = shap_values[0]   # single output head
     else:
         sv = shap_values
-    sv_mean = sv.mean(axis=1)     # [n_test, n_features]
+    if sv.ndim == 4:
+        sv = sv.squeeze(-1)   # [n_test, window_size, n_features]
+
+    # Sum absolute SHAP values across the window/timestep dimension → [n_test, n_features]
+    sv_collapsed = np.sum(np.abs(sv), axis=1)
 
     # SHAP summary plot
     plt.figure(figsize=(8, 5))
     shap.summary_plot(
-        sv_mean,
-        features=X_test.mean(axis=1),   # mean feature values over window
+        sv_collapsed,
         feature_names=feature_names,
         max_display=max_display,
         show=False,

@@ -23,7 +23,7 @@ CONFIG = {
     # ─────────────────────────────────────────────
     'ticker':              '^NSEI',
     'start_date':          '2020-01-01',
-    'end_date':            '2024-04-23',
+    'end_date':            '2024-05-29',
     'gap_start':           '2021-04-16',  # day after Kaggle1 last entry (Apr 15, 2021)
     'gap_end':             '2021-12-31',
 
@@ -61,10 +61,11 @@ CONFIG = {
         'BB_width_d',
         'ROC_d',
         'polarity_company',
+        'polarity_company_max',
         'polarity_market',
         'subjectivity'
     ],
-    'n_features':          9,
+    'n_features':          10,
     'window_size':         5,
     'warmup_days':         26,
 
@@ -112,8 +113,8 @@ CONFIG = {
     # ─────────────────────────────────────────────
     # DATA SPLIT
     # ─────────────────────────────────────────────
-    'train_ratio':         0.70,
-    'val_ratio':           0.15,
+    'train_ratio':         0.75,
+    'val_ratio':           0.10,
     'test_ratio':          0.15,
     'shuffle':             False,
 
@@ -125,15 +126,15 @@ CONFIG = {
     # ─────────────────────────────────────────────
     # MODEL ARCHITECTURE
     # ─────────────────────────────────────────────
-    'lstm_units':             64,
+    'lstm_units':             32,
     'lstm_dropout':           0.2,
     'lstm_recurrent_dropout': 0.0,
 
-    'gru_units':              64,
+    'gru_units':              32,
     'gru_dropout':            0.2,
     'gru_recurrent_dropout':  0.0,
 
-    'tcn_filters':            64,
+    'tcn_filters':            32,
     'tcn_kernel_size':        2,
     'tcn_dilations':          [1, 2, 4],
     'tcn_padding':            'causal',
@@ -142,9 +143,9 @@ CONFIG = {
     'tcn_use_skip_connections': True,
     'tcn_use_batch_norm':     False,
     'tcn_use_layer_norm':     False,
-    'tcn_use_weight_norm':    False,
+    'tcn_use_weight_norm':    True,
 
-    'shared_dense_units':     64,
+    'shared_dense_units':     32,
     'shared_dense_activation': 'relu',
     'shared_dense_dropout':   0.2,
 
@@ -168,7 +169,11 @@ CONFIG = {
     'lr_min':                 1e-6,
 
     'n_runs_final':           30,
-    'n_runs_ablation':        10,
+    'n_runs_ablation':        30,
+
+    'SEEDS': [23, 47, 0, 1, 2, 7, 13, 17, 21, 29,
+              31, 37, 42, 53, 61, 67, 71, 79, 83, 89,
+              97, 101, 113, 127, 131, 137, 149, 151, 157, 163],
 
     # ─────────────────────────────────────────────
     # PSO (Config H only)
@@ -184,7 +189,7 @@ CONFIG = {
     # ─────────────────────────────────────────────
     # EVALUATION
     # ─────────────────────────────────────────────
-    'granger_max_lag':        5,
+    'granger_max_lag':        10,
     'risk_free_rate':         0.06,
     'trading_strategy':       'long_only',
 
@@ -193,34 +198,30 @@ CONFIG = {
     # ─────────────────────────────────────────────
     'ablation_configs': {
         'A': {
+            'features':    ['Close_d', 'High_d', 'Low_d', 'Open_d', 'Volume_d'],
+            'heads':       ['classification'],
+            'merge':       'concat',
+            'use_pso':     False,
+            'n_runs':      30,
+            'description': 'Raw OHLCV denoised only — price-only floor baseline'
+        },
+        'B': {
+            'features':    ['Close_d', 'High_d', 'Low_d', 'Open_d', 'Volume_d',
+                            'polarity_company', 'polarity_market', 'subjectivity'],
+            'heads':       ['classification'],
+            'merge':       'concat',
+            'use_pso':     False,
+            'n_runs':      30,
+            'description': 'Denoised OHLCV + all sentiment — sentiment on raw prices'
+        },
+        'C': {
             'features':    ['Close_d', 'Volume_d',
                             'RSI_d', 'MACD_d', 'BB_width_d', 'ROC_d'],
             'heads':       ['classification'],
             'merge':       'concat',
             'use_pso':     False,
-            'n_runs':      10,
-            'description': 'All technicals, no sentiment — meaningful floor baseline'
-        },
-        'B': {
-            'features':    ['Close_d', 'Volume_d',
-                            'RSI_d', 'MACD_d', 'BB_width_d', 'ROC_d',
-                            'polarity_company', 'subjectivity'],
-            'heads':       ['classification'],
-            'merge':       'concat',
-            'use_pso':     False,
-            'n_runs':      10,
-            'description': 'Technicals + company sentiment — Kotekar feature baseline'
-        },
-        'C': {
-            'features':    ['Close_d', 'Volume_d',
-                            'RSI_d', 'MACD_d', 'BB_width_d', 'ROC_d',
-                            'polarity_company', 'polarity_market',
-                            'subjectivity'],
-            'heads':       ['classification'],
-            'merge':       'concat',
-            'use_pso':     False,
-            'n_runs':      10,
-            'description': 'All 9 features — Novelty 2 market sentiment contribution'
+            'n_runs':      30,
+            'description': 'Technical indicators only — meaningful floor baseline'
         },
         'D': {
             'features':    ['Close_d', 'Volume_d',
@@ -230,32 +231,10 @@ CONFIG = {
             'heads':       ['classification'],
             'merge':       'concat',
             'use_pso':     False,
-            'n_runs':      10,
-            'description': 'All 9 features confirmed — full feature set single-task'
+            'n_runs':      30,
+            'description': 'All 9 features, single-task — full feature set confirmed'
         },
         'E': {
-            'features':    ['Close_d', 'Volume_d',
-                            'RSI_d', 'MACD_d', 'BB_width_d', 'ROC_d',
-                            'polarity_company', 'polarity_market',
-                            'subjectivity'],
-            'heads':       ['classification'],
-            'merge':       'concat',
-            'use_pso':     False,
-            'n_runs':      10,
-            'description': 'Novelty 4 ablation — no regression head'
-        },
-        'F': {
-            'features':    ['Close_d', 'Volume_d',
-                            'RSI_d', 'MACD_d', 'BB_width_d', 'ROC_d',
-                            'polarity_company', 'polarity_market',
-                            'subjectivity'],
-            'heads':       ['regression'],
-            'merge':       'concat',
-            'use_pso':     False,
-            'n_runs':      10,
-            'description': 'Novelty 4 ablation — no classification head'
-        },
-        'G': {
             'features':    ['Close_d', 'Volume_d',
                             'RSI_d', 'MACD_d', 'BB_width_d', 'ROC_d',
                             'polarity_company', 'polarity_market',
@@ -263,10 +242,10 @@ CONFIG = {
             'heads':       ['classification', 'regression'],
             'merge':       'concat',
             'use_pso':     False,
-            'n_runs':      10,
-            'description': 'Full WSMTE without PSO'
+            'n_runs':      30,
+            'description': 'All 9 features, both heads, concat — full WSMTE without PSO'
         },
-        'H': {
+        'F': {
             'features':    ['Close_d', 'Volume_d',
                             'RSI_d', 'MACD_d', 'BB_width_d', 'ROC_d',
                             'polarity_company', 'polarity_market',
@@ -275,7 +254,7 @@ CONFIG = {
             'merge':       'pso',
             'use_pso':     True,
             'n_runs':      30,
-            'description': 'Full WSMTE with PSO — FINAL PROPOSED MODEL'
+            'description': 'All 9 features, both heads, PSO — FINAL PROPOSED MODEL'
         },
     },
 
