@@ -80,8 +80,8 @@ def test_wavelet_reduces_noise():
 
 
 def test_feature_vector_shape(final_df):
-    """final_dataset.csv must have exactly 10 feature columns."""
-    assert len(FEATURE_COLUMNS) == 10
+    """final_dataset.csv must have exactly 11 feature columns."""
+    assert len(FEATURE_COLUMNS) == 11
     for col in FEATURE_COLUMNS:
         assert col in final_df.columns, f"Missing feature column: {col}"
 
@@ -90,14 +90,16 @@ def test_feature_column_order():
     """Feature column names and ORDER must match the locked list."""
     expected = [
         'Close_d', 'Volume_d', 'RSI_d', 'MACD_d', 'BB_width_d', 'ROC_d',
-        'polarity_company', 'polarity_company_max', 'polarity_market', 'subjectivity',
+        'polarity_company', 'polarity_company_max',
+        'polarity_market', 'polarity_market_max',
+        'subjectivity',
     ]
     assert FEATURE_COLUMNS == expected, \
         f"Column order mismatch.\n  Expected: {expected}\n  Got:      {FEATURE_COLUMNS}"
 
 
 def test_window_shape(X_train):
-    """Each window must have shape [window_size, n_features] = [5, 10]."""
+    """Each window must have shape [window_size, n_features] = [5, 11]."""
     assert X_train.shape[1] == CONFIG['window_size'],  \
         f"Window timesteps: expected {CONFIG['window_size']}, got {X_train.shape[1]}"
     assert X_train.shape[2] == CONFIG['n_features'], \

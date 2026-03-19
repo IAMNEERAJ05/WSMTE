@@ -1,17 +1,18 @@
 # WSMTE — Architecture Specification
 
 ## Input
-- Shape: [batch_size, 5, 10]
+- Shape: [batch_size, 5, 11]
 - 5 = timesteps (5-day sliding window)
-- 10 = features [Close_d, Volume_d, RSI_d, MACD_d, BB_width_d, ROC_d,
-                  Polarity_company, Polarity_company_max, Polarity_market, Subjectivity]
+- 11 = features [Close_d, Volume_d, RSI_d, MACD_d, BB_width_d, ROC_d,
+                  Polarity_company, Polarity_company_max,
+                  Polarity_market, Polarity_market_max, Subjectivity]
 
 ---
 
 ## Full Architecture Diagram
 
 ```
-Input [batch, 5, 10]
+Input [batch, 5, 11]
       │
       ├─────────────────────────────────────────────────────┐
       │                         │                           │
@@ -90,9 +91,9 @@ Receptive field = 8 > 5 ✓ (full coverage with margin)
 | A | Close_d, High_d, Low_d, Open_d, Volume_d | concat | classification | 30 | Denoised OHLCV price-only floor |
 | B | Close_d, High_d, Low_d, Open_d, Volume_d + all sentiment | concat | classification | 30 | OHLCV + sentiment, no technicals |
 | C | Close_d, Volume_d, RSI_d, MACD_d, BB_width_d, ROC_d | concat | classification | 30 | Technical indicators only |
-| D | All 9 features | concat | classification | 30 | Full features, single-task |
-| E | All 9 features | concat | both heads | 30 | Full WSMTE without PSO |
-| F | All 9 features | PSO weighted | both heads | 30 | FINAL proposed model |
+| D | All 11 features | concat | classification | 30 | Full features, single-task |
+| E | All 11 features | concat | both heads | 30 | Full WSMTE without PSO |
+| F | All 11 features | PSO weighted | both heads | 30 | FINAL proposed model |
 
 Config F = your final proposed model. Compare against Kotekar 0.5853.
 
@@ -156,7 +157,7 @@ given dropout=0.2 and early stopping.
 ## Output Shapes at Each Stage
 
 ```
-Input:              [batch, 5, 10]
+Input:              [batch, 5, 11]
 After LSTM:         [batch, 32]
 After GRU:          [batch, 32]
 After TCN:          [batch, 32]

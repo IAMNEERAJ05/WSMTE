@@ -50,10 +50,11 @@ def merge_sources(price_df, kotekar_sent, market_combined, config):
 
     Steps:
       1. Daily mean polarity_company + polarity_company_max + subjectivity from kotekar_sent
-      2. Daily mean polarity_market from market_combined
+      2. Daily mean polarity_market + polarity_market_max from market_combined
       3. Left join both onto price_df (trading days are the anchor)
       4. Fill missing values:
            polarity_market      → 0.0  (covers gap May–Dec 2021 + any other missing)
+           polarity_market_max  → 0.0
            polarity_company     → 0.0
            polarity_company_max → 0.0
            subjectivity         → 0.5
@@ -68,15 +69,18 @@ def merge_sources(price_df, kotekar_sent, market_combined, config):
         subjectivity=('subjectivity', 'mean')
     ).reset_index()
 
-    # Aggregate market sentiment
+    # Aggregate market sentiment — mean and max-absolute (signed)
     market_daily = market_combined.groupby('date').agg(
-        polarity_market=('polarity_market', 'mean')
+        polarity_market=('polarity_market', 'mean'),
+        polarity_market_max=('polarity_market',
+                             lambda x: x.loc[x.abs().idxmax()]),
     ).reset_index()
 
     df = price_df.merge(company_daily, on='date', how='left')
     df = df.merge(market_daily, on='date', how='left')
 
     df['polarity_market']      = df['polarity_market'].fillna(config['missing_polarity'])
+    df['polarity_market_max']  = df['polarity_market_max'].fillna(config['missing_polarity'])
     df['polarity_company']     = df['polarity_company'].fillna(config['missing_polarity'])
     df['polarity_company_max'] = df['polarity_company_max'].fillna(config['missing_polarity'])
     df['subjectivity']         = df['subjectivity'].fillna(config['missing_subjectivity'])

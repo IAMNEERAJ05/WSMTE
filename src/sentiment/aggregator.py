@@ -36,7 +36,10 @@ def aggregate_market_daily(kaggle1_pol, kaggle2_pol):
         kaggle2_pol: DataFrame with columns [date, polarity_market]
 
     Returns:
-        DataFrame with columns [date, polarity_market], sorted ascending
+        DataFrame with columns [date, polarity_market, polarity_market_max],
+        sorted ascending.
+        polarity_market_max: signed polarity of the article with highest
+        absolute polarity that day (preserving sign).
     """
     combined = pd.concat(
         [kaggle1_pol[['date', 'polarity_market']],
@@ -45,7 +48,9 @@ def aggregate_market_daily(kaggle1_pol, kaggle2_pol):
     ).sort_values('date').reset_index(drop=True)
 
     daily = combined.groupby('date').agg(
-        polarity_market=('polarity_market', 'mean')
+        polarity_market=('polarity_market', 'mean'),
+        polarity_market_max=('polarity_market',
+                             lambda x: x.loc[x.abs().idxmax()]),
     ).reset_index()
     return daily
 
