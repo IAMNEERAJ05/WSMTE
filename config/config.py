@@ -55,6 +55,9 @@ CONFIG = {
     # ─────────────────────────────────────────────
     'feature_columns': [
         'Close_d',
+        'High_d',
+        'Low_d',
+        'Open_d',
         'Volume_d',
         'RSI_d',
         'MACD_d',
@@ -66,7 +69,7 @@ CONFIG = {
         'polarity_market_max',
         'subjectivity'
     ],
-    'n_features':          11,
+    'n_features':          14,
     'window_size':         5,
     'warmup_days':         26,
 
