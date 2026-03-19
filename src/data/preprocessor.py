@@ -71,7 +71,9 @@ def handle_missing_values(df, config):
       subjectivity     → config['missing_subjectivity'] (0.5)
     Returns modified df.
     """
-    df['polarity_company'] = df['polarity_company'].fillna(config['missing_polarity'])
-    df['polarity_market']  = df['polarity_market'].fillna(config['missing_polarity'])
-    df['subjectivity']     = df['subjectivity'].fillna(config['missing_subjectivity'])
+    df['polarity_company']     = df['polarity_company'].fillna(config['missing_polarity'])
+    df['polarity_company_max'] = df['polarity_company_max'].fillna(config['missing_polarity'])
+    df['polarity_market']      = df['polarity_market'].fillna(config['missing_polarity'])
+    df['polarity_market_max']  = df['polarity_market_max'].fillna(config['missing_polarity'])
+    df['subjectivity']         = df['subjectivity'].fillna(config['missing_subjectivity'])
     return df
