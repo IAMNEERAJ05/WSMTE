@@ -80,8 +80,9 @@ def test_wavelet_reduces_noise():
 
 
 def test_feature_vector_shape(final_df):
-    """final_dataset.csv must have exactly 11 feature columns."""
-    assert len(FEATURE_COLUMNS) == 11
+    """final_dataset.csv must have exactly n_features feature columns."""
+    assert len(FEATURE_COLUMNS) == CONFIG['n_features'], \
+        f"Expected {CONFIG['n_features']} features, got {len(FEATURE_COLUMNS)}"
     for col in FEATURE_COLUMNS:
         assert col in final_df.columns, f"Missing feature column: {col}"
 
@@ -89,7 +90,8 @@ def test_feature_vector_shape(final_df):
 def test_feature_column_order():
     """Feature column names and ORDER must match the locked list."""
     expected = [
-        'Close_d', 'Volume_d', 'RSI_d', 'MACD_d', 'BB_width_d', 'ROC_d',
+        'Close_d', 'High_d', 'Low_d', 'Open_d', 'Volume_d',
+        'RSI_d', 'MACD_d', 'BB_width_d', 'ROC_d',
         'polarity_company', 'polarity_company_max',
         'polarity_market', 'polarity_market_max',
         'subjectivity',

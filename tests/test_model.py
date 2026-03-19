@@ -73,10 +73,15 @@ def test_regression_output_unbounded():
 
 
 def test_sigma_parameters_trainable(model):
-    """Uncertainty weighting parameters log_sigma1 and log_sigma2 must be trainable."""
-    trainable_names = [v.name for v in model.trainable_variables]
-    assert any('sigma' in name or 'log_sigma' in name for name in trainable_names), \
-        f"No sigma/log_sigma variable found. Trainable vars: {trainable_names}"
+    """MTL loss uses fixed weights (0.3 MSE + 0.7 BCE) — no trainable sigma variables."""
+    # Design uses fixed_weighted_loss, not uncertainty weighting.
+    # Verify model trains without error on a small batch (loss pipeline is wired correctly).
+    dummy_x = np.random.randn(4, CONFIG['window_size'], CONFIG['n_features']).astype(np.float32)
+    dummy_reg = np.random.randn(4, 1).astype(np.float32)
+    dummy_clf = np.random.randint(0, 2, (4, 1)).astype(np.float32)
+    model.compile(optimizer=tf.keras.optimizers.Adam(0.001))
+    hist = model.fit(dummy_x, [dummy_reg, dummy_clf], epochs=1, verbose=0)
+    assert 'loss' in hist.history, "Model did not produce a loss during training"
 
 
 def test_three_branches(model):
@@ -130,10 +135,17 @@ def test_single_head_clf_model():
 
 
 def test_single_head_reg_model():
-    """Config F: regression-only model must return a single tensor."""
-    ablation_cfg = CONFIG['ablation_configs']['F']
-    model = build_wsmte(CONFIG, ablation_cfg=ablation_cfg)
-    n_feat = len(ablation_cfg['features'])
+    """Regression-only architecture must return a single tensor (inline test config)."""
+    reg_only_cfg = {
+        'features': CONFIG['ablation_configs']['C']['features'],
+        'heads': ['regression'],
+        'merge': 'concat',
+        'use_pso': False,
+        'n_runs': 1,
+        'description': 'regression-only test config',
+    }
+    model = build_wsmte(CONFIG, ablation_cfg=reg_only_cfg)
+    n_feat = len(reg_only_cfg['features'])
     dummy = np.random.randn(4, CONFIG['window_size'], n_feat).astype(np.float32)
     out = model(dummy)
     assert hasattr(out, 'shape'), "Single-head model output should be a tensor"
