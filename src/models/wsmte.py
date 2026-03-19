@@ -7,7 +7,7 @@ build_wsmte(config, use_pso=False, ablation_cfg=None)
 
 WSMTEModel subclasses tf.keras.Model with functional inputs/outputs so that:
   - model.layers exposes LSTM, GRU, TCN layers (required by tests)
-  - model.trainable_variables includes log_sigma1/log_sigma2 for dual-head
+  - Custom train_step applies fixed-weight MTL loss (0.3×MSE + 0.7×BCE)
   - Custom train_step / test_step compute the correct loss per head config
 """
 
@@ -16,21 +16,20 @@ import numpy as np
 
 from src.models.encoder import build_lstm_branch, build_gru_branch, build_tcn_branch
 from src.models.heads import build_regression_head, build_classification_head
-from src.models.losses import uncertainty_weighted_loss
+from src.models.losses import fixed_weighted_loss
 
 
 @tf.keras.utils.register_keras_serializable(package='src.models.wsmte')
 class WSMTEModel(tf.keras.Model):
 
     """
-    WSMTE model with optional uncertainty-weighted MTL loss.
+    WSMTE model with fixed-weight MTL loss (0.3 × MSE + 0.7 × BCE).
 
-    For dual-head configs (G, H):
-      - log_sigma1, log_sigma2 are trainable tf.Variable parameters
-      - Custom train_step / test_step apply uncertainty weighting
+    For dual-head configs (E, F):
+      - Custom train_step / test_step apply fixed weighting
 
-    For single-head configs (A–F):
-      - No sigma variables; custom train_step computes task loss directly
+    For single-head configs (A–D):
+      - Custom train_step computes task loss directly
       - class_weight support: pass sample_weight via model.set_class_weight()
 
     Initialised via the functional API (inputs= / outputs= kwargs to super()),
@@ -48,27 +47,8 @@ class WSMTEModel(tf.keras.Model):
         self.has_clf  = 'classification' in heads
         self.has_reg  = 'regression' in heads
 
-        # Uncertainty parameters (Kendall et al. CVPR 2018) — dual-head only
-        if self.has_both:
-            self.log_sigma1 = tf.Variable(
-                0.0, trainable=True, dtype=tf.float32, name='log_sigma1'
-            )
-            self.log_sigma2 = tf.Variable(
-                0.0, trainable=True, dtype=tf.float32, name='log_sigma2'
-            )
-
         # Optional per-class sample weights (set via set_class_weight)
         self._class_weight = None
-
-    # ── Variable tracking (Keras 3 requires explicit override) ────────────────
-
-    @property
-    def trainable_variables(self):
-        """Include log_sigma1/log_sigma2 in trainable_variables for Keras 3."""
-        base = super().trainable_variables
-        if self.has_both:
-            return list(base) + [self.log_sigma1, self.log_sigma2]
-        return base
 
     # ── Public API ────────────────────────────────────────────────────────────
 
@@ -92,9 +72,7 @@ class WSMTEModel(tf.keras.Model):
             bce = tf.reduce_mean(
                 tf.keras.losses.binary_crossentropy(y_clf, p_clf)
             )
-            return uncertainty_weighted_loss(
-                mse, bce, self.log_sigma1, self.log_sigma2
-            )
+            return fixed_weighted_loss(mse, bce)
 
         elif self.has_clf:
             y_clf = tf.reshape(tf.cast(y, tf.float32), [-1])

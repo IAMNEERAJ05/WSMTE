@@ -105,22 +105,22 @@ If something seems improvable, note it as a comment but implement as specified.
 ## 4. Architecture Decisions
 
 ### Encoder Branches (all parallel, NOT sequential)
-- LSTM: units=64, activation=tanh, recurrent_activation=sigmoid,
+- LSTM: units=32, activation=tanh, recurrent_activation=sigmoid,
         dropout=0.2, recurrent_dropout=0.0, return_sequences=False
-- GRU:  units=64, activation=tanh, recurrent_activation=sigmoid,
+- GRU:  units=32, activation=tanh, recurrent_activation=sigmoid,
         dropout=0.2, recurrent_dropout=0.0, return_sequences=False
-- TCN:  filters=64, kernel_size=2, dilations=[1,2,4],
+- TCN:  filters=32, kernel_size=2, dilations=[1,2,4],
         padding=causal, activation=relu, dropout=0.2,
         use_skip_connections=True, use_batch_norm=False,
-        use_layer_norm=False, use_weight_norm=False
+        use_layer_norm=False, use_weight_norm=True
 
 ### Branch Merging
-- Configs A–G: simple concatenation → 192-dim vector
-- Config H only: PSO-weighted sum → w1×LSTM + w2×TCN + w3×GRU
+- Configs A–E: simple concatenation → 96-dim vector
+- Config F only: PSO-weighted sum → w1×LSTM + w2×TCN + w3×GRU
   where w1+w2+w3=1, weights found by PSO on validation set
 
 ### Shared Dense Layer
-- Dense(64, activation=relu)
+- Dense(32, activation=relu)
 - Dropout(0.2)
 
 ### Regression Head
@@ -134,12 +134,11 @@ If something seems improvable, note it as a comment but implement as specified.
 - Loss: BCE
 
 ### Combined Loss (MTL)
-- Uncertainty weighting: Kendall et al. CVPR 2018
-- Formula: L = (1/2σ₁²)×MSE + (1/2σ₂²)×BCE + log(σ₁) + log(σ₂)
-- σ₁ and σ₂ are trainable parameters
-- Do NOT use fixed alpha weighting
+- Fixed weighted combination
+- Formula: L = 0.3 × MSE + 0.7 × BCE
 - Do NOT use Focal loss
 - Do NOT use Huber loss
+- Do NOT use uncertainty (Kendall) weighting
 
 ### Excluded Architectures — Do NOT Add These
 - TKAN: no stable library, Kotekar's own contribution
@@ -152,7 +151,7 @@ If something seems improvable, note it as a comment but implement as specified.
 
 ## 5. Training Decisions
 
-- Split: 70/15/15 temporal, NO shuffling
+- Split: 75/10/15 temporal, NO shuffling
 - Optimizer: Adam, lr=0.001
 - Batch size: 32
 - Max epochs: 100
@@ -161,8 +160,8 @@ If something seems improvable, note it as a comment but implement as specified.
                 patience=7, min_lr=1e-6)
 - Dropout: 0.2 on all branches and shared dense
 - Class imbalance: apply class_weight to BCE if label ratio exceeds 60:40
-- Config G + H: 30 runs with different random seeds
-- Configs A–F: 10 runs with different random seeds
+- All configs A–F: 30 runs with different random seeds
+- Seeds: [23, 47, 0, 1, 2, 7, 13, 17, 21, 29, 31, 37, 42, 53, 61, 67, 71, 79, 83, 89, 97, 101, 113, 127, 131, 137, 149, 151, 157, 163]
 - Checkpoint: monitor val_loss for saving, log val_binary_accuracy separately
 
 ---
@@ -213,25 +212,19 @@ If something seems improvable, note it as a comment but implement as specified.
 
 ## 8. Ablation Study
 
-8 configs total. See ARCHITECTURE.md for full table.
-- Configs A–G: simple concatenation, 10 runs each
-- Config H: PSO weighting, 30 runs (final proposed model)
+6 configs total. See ARCHITECTURE.md for full table.
+- Configs A–E: simple concatenation, 30 runs each
+- Config F: PSO weighting, 30 runs (final proposed model)
 - All results saved to ablation_results.csv (one row per run)
 
-### Ablation Feature Design (LOCKED)
-Config A uses all technical features as baseline — NOT minimal features.
-This ensures sentiment contribution is isolated cleanly.
-
-| Config | Features | Purpose |
-|--------|----------|---------|
-| A | Close_d, Volume_d, RSI_d, MACD_d, BB_width_d, ROC_d | Technicals only — meaningful floor |
-| B | A + polarity_company + subjectivity | Company sentiment contribution |
-| C | B + polarity_market | Market sentiment contribution (Novelty 2) |
-| D | All 9 features | Full feature set single-task confirmation |
-| E | All 9 features, classification only | MTL ablation — no regression head |
-| F | All 9 features, regression only | MTL ablation — no classification head |
-| G | All 9 features, both heads, concat | Full WSMTE without PSO |
-| H | All 9 features, both heads, PSO | Final proposed model |
+| Config | Features | Heads | Merge | Purpose |
+|--------|----------|-------|-------|---------|
+| A | Close_d, High_d, Low_d, Open_d, Volume_d | classification | concat | Denoised OHLCV price-only floor |
+| B | Close_d, High_d, Low_d, Open_d, Volume_d + all sentiment | classification | concat | OHLCV + sentiment, no technicals |
+| C | Close_d, Volume_d, RSI_d, MACD_d, BB_width_d, ROC_d | classification | concat | Technical indicators only |
+| D | All 9 features | classification | concat | Full features, single-task |
+| E | All 9 features | both heads | concat | Full WSMTE without PSO |
+| F | All 9 features | both heads | PSO | Final proposed model |
 
 ---
 

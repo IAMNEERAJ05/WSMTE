@@ -117,7 +117,7 @@ def train_multi_run(ablation_cfg, config_name, data, config, n_runs=None,
     if n_runs is None:
         n_runs = ablation_cfg['n_runs']
     if seeds is None:
-        seeds = list(range(n_runs))
+        seeds = config['SEEDS'][:n_runs]
     if results_path is None:
         results_path = config['ablation_results']
 
