@@ -229,37 +229,40 @@ CONFIG = {
             'description': 'Technical indicators only — meaningful floor baseline'
         },
         'D': {
-            'features':    ['Close_d', 'Volume_d',
+            'features':    ['Close_d', 'High_d', 'Low_d', 'Open_d', 'Volume_d',
                             'RSI_d', 'MACD_d', 'BB_width_d', 'ROC_d',
-                            'polarity_company', 'polarity_market', 'polarity_market_max',
+                            'polarity_company', 'polarity_company_max',
+                            'polarity_market', 'polarity_market_max',
                             'subjectivity'],
             'heads':       ['classification'],
             'merge':       'concat',
             'use_pso':     False,
             'n_runs':      30,
-            'description': 'All 11 features, single-task — full feature set confirmed'
+            'description': 'All 14 features, single-task — full feature set confirmed'
         },
         'E': {
-            'features':    ['Close_d', 'Volume_d',
+            'features':    ['Close_d', 'High_d', 'Low_d', 'Open_d', 'Volume_d',
                             'RSI_d', 'MACD_d', 'BB_width_d', 'ROC_d',
-                            'polarity_company', 'polarity_market', 'polarity_market_max',
+                            'polarity_company', 'polarity_company_max',
+                            'polarity_market', 'polarity_market_max',
                             'subjectivity'],
             'heads':       ['classification', 'regression'],
             'merge':       'concat',
             'use_pso':     False,
             'n_runs':      30,
-            'description': 'All 11 features, both heads, concat — full WSMTE without PSO'
+            'description': 'All 14 features, both heads, concat — full WSMTE without PSO'
         },
         'F': {
-            'features':    ['Close_d', 'Volume_d',
+            'features':    ['Close_d', 'High_d', 'Low_d', 'Open_d', 'Volume_d',
                             'RSI_d', 'MACD_d', 'BB_width_d', 'ROC_d',
-                            'polarity_company', 'polarity_market', 'polarity_market_max',
+                            'polarity_company', 'polarity_company_max',
+                            'polarity_market', 'polarity_market_max',
                             'subjectivity'],
             'heads':       ['classification', 'regression'],
             'merge':       'pso',
             'use_pso':     True,
             'n_runs':      30,
-            'description': 'All 11 features, both heads, PSO — FINAL PROPOSED MODEL'
+            'description': 'All 14 features, both heads, PSO — FINAL PROPOSED MODEL'
         },
     },
 
