@@ -1,6 +1,6 @@
 """
 src/models/pso_weighting.py
-PSO two-stage branch weight optimization for Config H.
+PSO two-stage branch weight optimization for Config F (final proposed model).
 
 Stage 2: Freeze encoder, PSO searches for best [w1, w2, w3] on validation set.
 Stage 3: Build new PSO-merge model, transfer branch weights, fine-tune.

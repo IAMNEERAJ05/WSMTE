@@ -245,14 +245,14 @@ def build_wsmte(config, use_pso=False, ablation_cfg=None):
 
 def build_wsmte_pso(config, pso_weights, ablation_cfg=None):
     """
-    Build WSMTE model with PSO-weighted branch merge (Config H Stage 3).
+    Build WSMTE model with PSO-weighted branch merge (Config F — final proposed model).
     The shared dense layer now takes [batch, 64] input (weighted sum),
     NOT [batch, 192] (concatenation).
 
     pso_weights: array-like [w1, w2, w3] (softmax-normalised, sum=1)
     """
     if ablation_cfg is None:
-        ablation_cfg = config['ablation_configs']['H']
+        ablation_cfg = config['ablation_configs']['F']
 
     n_features = len(ablation_cfg['features'])
     heads       = ablation_cfg['heads']
